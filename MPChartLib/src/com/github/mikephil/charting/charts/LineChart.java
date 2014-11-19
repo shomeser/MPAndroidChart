@@ -10,6 +10,7 @@ import android.util.AttributeSet;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.utils.FillFormatter;
 
 import java.util.ArrayList;
 
@@ -25,6 +26,8 @@ public class LineChart extends BarLineChartBase<LineData> {
 
     /** paint for the inner circle of the value indicators */
     protected Paint mCirclePaintInner;
+
+    private FillFormatter mFillFormatter;
 
     public LineChart(Context context) {
         super(context);
@@ -42,6 +45,8 @@ public class LineChart extends BarLineChartBase<LineData> {
     protected void init() {
         super.init();
 
+        mFillFormatter = new DefaultFillFormatter();
+
         mCirclePaintInner = new Paint(Paint.ANTI_ALIAS_FLAG);
         mCirclePaintInner.setStyle(Paint.Style.FILL);
         mCirclePaintInner.setColor(Color.WHITE);
@@ -49,7 +54,7 @@ public class LineChart extends BarLineChartBase<LineData> {
         mHighlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mHighlightPaint.setStyle(Paint.Style.STROKE);
         mHighlightPaint.setStrokeWidth(2f);
-        mHighlightPaint.setColor(Color.rgb(255, 187, 115));
+        mHighlightPaint.setColor(Color.rgb(255, 187, 115));        
     }
 
     @Override
@@ -62,7 +67,7 @@ public class LineChart extends BarLineChartBase<LineData> {
         // mDeltaX = 1;
         // }
 
-        if (mDeltaX == 0 && mOriginalData.getYValCount() > 0)
+        if (mDeltaX == 0 && mData.getYValCount() > 0)
             mDeltaX = 1;
     }
 
@@ -71,7 +76,7 @@ public class LineChart extends BarLineChartBase<LineData> {
 
         for (int i = 0; i < mIndicesToHightlight.length; i++) {
 
-            LineDataSet set = mOriginalData.getDataSetByIndex(mIndicesToHightlight[i]
+            LineDataSet set = mData.getDataSetByIndex(mIndicesToHightlight[i]
                     .getDataSetIndex());
 
             if (set == null)
@@ -92,7 +97,7 @@ public class LineChart extends BarLineChartBase<LineData> {
                     xIndex, mYChartMax, xIndex, mYChartMin, 0, y, mDeltaX, y
             };
 
-            transformPointArray(pts);
+            mTrans.pointValuesToPixel(pts);
             // draw the highlight lines
             mDrawCanvas.drawLines(pts, mHighlightPaint);
         }
@@ -126,9 +131,9 @@ public class LineChart extends BarLineChartBase<LineData> {
     @Override
     protected void drawData() {
 
-        ArrayList<LineDataSet> dataSets = mCurrentData.getDataSets();
+        ArrayList<LineDataSet> dataSets = mData.getDataSets();
 
-        for (int i = 0; i < mCurrentData.getDataSetCount(); i++) {
+        for (int i = 0; i < mData.getDataSetCount(); i++) {
 
             LineDataSet dataSet = dataSets.get(i);
             ArrayList<Entry> entries = dataSet.getYVals();
@@ -193,7 +198,8 @@ public class LineChart extends BarLineChartBase<LineData> {
                 // if filled is enabled, close the path
                 if (dataSet.isDrawFilledEnabled()) {
 
-                    float fillMin = dataSet.getYMin() >= 0 ? mYChartMin : 0;
+                    float fillMin = mFillFormatter
+                            .getFillLinePosition(dataSet, mData, mYChartMax, mYChartMin);
 
                     spline.lineTo((entries.size() - 1) * mPhaseX, fillMin);
                     spline.lineTo(0, fillMin);
@@ -204,7 +210,7 @@ public class LineChart extends BarLineChartBase<LineData> {
                     mRenderPaint.setStyle(Paint.Style.STROKE);
                 }
 
-                transformPath(spline);
+                mTrans.pathValueToPixel(spline);
 
                 mDrawCanvas.drawPath(spline, mRenderPaint);
 
@@ -216,7 +222,7 @@ public class LineChart extends BarLineChartBase<LineData> {
                 // more than 1 color
                 if (dataSet.getColors() == null || dataSet.getColors().size() > 1) {
 
-                    float[] valuePoints = generateTransformedValuesLineScatter(entries);
+                    float[] valuePoints = mTrans.generateTransformedValuesLineScatter(entries, mPhaseY);
 
                     for (int j = 0; j < (valuePoints.length - 2) * mPhaseX; j += 2) {
 
@@ -242,7 +248,7 @@ public class LineChart extends BarLineChartBase<LineData> {
                     mRenderPaint.setColor(dataSet.getColor());
 
                     Path line = generateLinePath(entries);
-                    transformPath(line);
+                    mTrans.pathValueToPixel(line);
 
                     mDrawCanvas.drawPath(line, mRenderPaint);
                 }
@@ -263,11 +269,11 @@ public class LineChart extends BarLineChartBase<LineData> {
 
                     // mRenderPaint.setShader(dataSet.getShader());
 
-                    float fillMin = dataSet.getYMin() >= 0 ? mYChartMin : 0;
+                    Path filled = generateFilledPath(entries,
+                            mFillFormatter.getFillLinePosition(dataSet, mData, mYChartMax,
+                                    mYChartMin));
 
-                    Path filled = generateFilledPath(entries, fillMin);
-
-                    transformPath(filled);
+                    mTrans.pathValueToPixel(filled);
 
                     mDrawCanvas.drawPath(filled, mRenderPaint);
 
@@ -280,7 +286,7 @@ public class LineChart extends BarLineChartBase<LineData> {
             mRenderPaint.setPathEffect(null);
         }
     }
-
+    
     /**
      * Generates the path that is used for filled drawing.
      * 
@@ -332,11 +338,11 @@ public class LineChart extends BarLineChartBase<LineData> {
     protected void drawValues() {
 
         // if values are drawn
-        if (mDrawYValues && mCurrentData.getYValCount() < mMaxVisibleCount * mScaleX) {
+        if (mDrawYValues && mData.getYValCount() < mMaxVisibleCount * mTrans.getScaleX()) {
 
-            ArrayList<LineDataSet> dataSets = mCurrentData.getDataSets();
+            ArrayList<LineDataSet> dataSets = mData.getDataSets();
 
-            for (int i = 0; i < mCurrentData.getDataSetCount(); i++) {
+            for (int i = 0; i < mData.getDataSetCount(); i++) {
 
                 LineDataSet dataSet = dataSets.get(i);
 
@@ -348,7 +354,7 @@ public class LineChart extends BarLineChartBase<LineData> {
 
                 ArrayList<Entry> entries = dataSet.getYVals();
 
-                float[] positions = generateTransformedValuesLineScatter(entries);
+                float[] positions = mTrans.generateTransformedValuesLineScatter(entries, mPhaseY);
 
                 for (int j = 0; j < positions.length * mPhaseX; j += 2) {
 
@@ -386,9 +392,9 @@ public class LineChart extends BarLineChartBase<LineData> {
 
         mRenderPaint.setStyle(Paint.Style.FILL);
 
-        ArrayList<LineDataSet> dataSets = mCurrentData.getDataSets();
+        ArrayList<LineDataSet> dataSets = mData.getDataSets();
 
-        for (int i = 0; i < mCurrentData.getDataSetCount(); i++) {
+        for (int i = 0; i < mData.getDataSetCount(); i++) {
 
             LineDataSet dataSet = dataSets.get(i);
 
@@ -397,7 +403,7 @@ public class LineChart extends BarLineChartBase<LineData> {
 
                 ArrayList<Entry> entries = dataSet.getYVals();
 
-                float[] positions = generateTransformedValuesLineScatter(entries);
+                float[] positions = mTrans.generateTransformedValuesLineScatter(entries, mPhaseY);
 
                 for (int j = 0; j < positions.length * mPhaseX; j += 2) {
 
@@ -468,5 +474,60 @@ public class LineChart extends BarLineChartBase<LineData> {
         }
 
         return null;
+    }
+
+    /**
+     * Sets a custom FillFormatter to the chart that handles the position of the
+     * filled-line for each DataSet. Set this to null to use the default logic.
+     * 
+     * @param formatter
+     */
+    public void setFillFormatter(FillFormatter formatter) {
+
+        if (formatter == null)
+            formatter = new DefaultFillFormatter();
+
+        mFillFormatter = formatter;
+    }
+
+    /**
+     * Default formatter that calculates the position of the filled line.
+     * 
+     * @author Philipp Jahoda
+     */
+    private class DefaultFillFormatter implements FillFormatter {
+
+        @Override
+        public float getFillLinePosition(LineDataSet dataSet, LineData data,
+                float chartMaxY, float chartMinY) {
+
+            float fillMin = 0f;
+
+            if (dataSet.getYMax() > 0 && dataSet.getYMin() < 0) {
+                fillMin = 0f;
+            } else {
+
+                if (!mStartAtZero) {
+
+                    float max, min;
+
+                    if (data.getYMax() > 0)
+                        max = 0f;
+                    else
+                        max = chartMaxY;
+                    if (data.getYMin() < 0)
+                        min = 0f;
+                    else
+                        min = chartMinY;
+
+                    fillMin = dataSet.getYMin() >= 0 ? min : max;
+                } else {
+                    fillMin = 0f;
+                }
+
+            }
+
+            return fillMin;
+        }
     }
 }

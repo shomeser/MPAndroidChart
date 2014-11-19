@@ -2,29 +2,37 @@
 package com.xxmassdeveloper.mpchartexample;
 
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.github.mikephil.charting.charts.BarLineChartBase.BorderPosition;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.data.filter.Approximator;
 import com.github.mikephil.charting.data.filter.Approximator.ApproximatorType;
+import com.github.mikephil.charting.interfaces.OnChartGestureListener;
+import com.github.mikephil.charting.interfaces.OnChartValueSelectedListener;
+import com.github.mikephil.charting.utils.Legend;
+import com.github.mikephil.charting.utils.Legend.LegendForm;
+import com.github.mikephil.charting.utils.LimitLine;
+import com.github.mikephil.charting.utils.LimitLine.LimitLabelPosition;
 import com.github.mikephil.charting.utils.XLabels;
-import com.github.mikephil.charting.utils.YLabels;
 import com.xxmassdeveloper.mpchartexample.notimportant.DemoBase;
 
 import java.util.ArrayList;
 
-public class CubicLineChartActivity extends DemoBase implements OnSeekBarChangeListener {
+public class LineChartActivity1 extends DemoBase implements OnSeekBarChangeListener,
+        OnChartGestureListener, OnChartValueSelectedListener {
 
     private LineChart mChart;
     private SeekBar mSeekBarX, mSeekBarY;
@@ -50,19 +58,36 @@ public class CubicLineChartActivity extends DemoBase implements OnSeekBarChangeL
         mSeekBarX.setOnSeekBarChangeListener(this);
 
         mChart = (LineChart) findViewById(R.id.chart1);
+        mChart.setOnChartGestureListener(this);
+        mChart.setOnChartValueSelectedListener(this);
+
+        mChart.setUnit(" $");
+        mChart.setDrawUnitsInChart(true);
+
         // if enabled, the chart will always start at zero on the y-axis
-        mChart.setStartAtZero(true);
+        mChart.setStartAtZero(false);
 
         // disable the drawing of values into the chart
         mChart.setDrawYValues(false);
 
-        mChart.setDrawBorder(false);
-        
-        mChart.setDrawLegend(false);
+        mChart.setDrawBorder(true);
+        mChart.setBorderPositions(new BorderPosition[] {
+                BorderPosition.BOTTOM
+        });
 
         // no description text
         mChart.setDescription("");
-        mChart.setUnit(" $");
+        mChart.setNoDataTextDescription("You need to provide data for the chart.");
+
+        // // enable / disable grid lines
+        // mChart.setDrawVerticalGrid(false);
+        // mChart.setDrawHorizontalGrid(false);
+        //
+        // // enable / disable grid background
+        // mChart.setDrawGridBackground(false);
+        //
+        // mChart.setDrawXLegend(false);
+        // mChart.setDrawYLegend(false);
 
         // enable value highlighting
         mChart.setHighlightEnabled(true);
@@ -75,28 +100,46 @@ public class CubicLineChartActivity extends DemoBase implements OnSeekBarChangeL
         mChart.setScaleEnabled(true);
 
         // if disabled, scaling can be done on x- and y-axis separately
-        mChart.setPinchZoom(false);
+        mChart.setPinchZoom(true);
 
-        mChart.setDrawGridBackground(false);
-        mChart.setDrawVerticalGrid(false);
-        
-        Typeface tf = Typeface.createFromAsset(getAssets(), "OpenSans-Regular.ttf");
-        mChart.setValueTypeface(tf);
-        
-        XLabels x = mChart.getXLabels();
-        x.setTypeface(tf);
-        
-        YLabels y = mChart.getYLabels();
-        y.setTypeface(tf);
-        y.setLabelCount(5);
+        // set an alternative background color
+        // mChart.setBackgroundColor(Color.GRAY);
+
+        // create a custom MarkerView (extend MarkerView) and specify the layout
+        // to use for it
+        MyMarkerView mv = new MyMarkerView(this, R.layout.custom_marker_view);
+
+        // define an offset to change the original position of the marker
+        // (optional)
+        mv.setOffsets(-mv.getMeasuredWidth() / 2, -mv.getMeasuredHeight());
+
+        // set the marker to the chart
+        mChart.setMarkerView(mv);
+
+        // enable/disable highlight indicators (the lines that indicate the
+        // highlighted Entry)
+        mChart.setHighlightIndicatorEnabled(false);
 
         // add data
         setData(45, 100);
-        
-        mChart.animateXY(2000, 2000);
 
-        // dont forget to refresh the drawing
-        mChart.invalidate();
+        mChart.animateX(2500);
+
+//        // restrain the maximum scale-out factor
+//        mChart.setScaleMinima(3f, 3f);
+//
+//        // center the view to a specific position inside the chart
+//        mChart.centerViewPort(10, 50);
+
+        // get the legend (only possible after setting data)
+        Legend l = mChart.getLegend();
+
+        // modify the legend ...
+        // l.setPosition(LegendPosition.LEFT_OF_CHART);
+        l.setForm(LegendForm.LINE);
+
+        // // dont forget to refresh the drawing
+        // mChart.invalidate();
     }
 
     @Override
@@ -216,7 +259,20 @@ public class CubicLineChartActivity extends DemoBase implements OnSeekBarChangeL
                 } else {
                     mChart.disableFiltering();
                 }
-                mChart.invalidate();            
+                mChart.invalidate();
+
+                //
+                // for(int i = 0; i < 10; i++) {
+                // mChart.addEntry(new Entry((float) (Math.random() * 100),
+                // i+2), 0);
+                // mChart.invalidate();
+                // }
+                //
+                // Toast.makeText(getApplicationContext(), "valcount: " +
+                // mChart.getDataOriginal().getYValCount() + ", valsum: " +
+                // mChart.getDataOriginal().getYValueSum(),
+                // Toast.LENGTH_SHORT).show();
+                //
                 break;
             }
             case R.id.actionSave: {
@@ -262,37 +318,87 @@ public class CubicLineChartActivity extends DemoBase implements OnSeekBarChangeL
 
         ArrayList<String> xVals = new ArrayList<String>();
         for (int i = 0; i < count; i++) {
-            xVals.add((1990 +i) + "");
+            xVals.add((i) + "");
         }
 
-        ArrayList<Entry> vals1 = new ArrayList<Entry>();
+        ArrayList<Entry> yVals = new ArrayList<Entry>();
 
         for (int i = 0; i < count; i++) {
             float mult = (range + 1);
-            float val = (float) (Math.random() * mult) + 20;// + (float)
+            float val = (float) (Math.random() * mult) + 3;// + (float)
                                                            // ((mult *
                                                            // 0.1) / 10);
-            vals1.add(new Entry(val, i));
+            yVals.add(new Entry(val, i));
         }
-        
+
         // create a dataset and give it a type
-        LineDataSet set1 = new LineDataSet(vals1, "DataSet 1");
-        set1.setDrawCubic(true);
-        set1.setCubicIntensity(0.2f);
-        set1.setDrawFilled(true);
-        set1.setDrawCircles(false); 
-        set1.setLineWidth(2f);
-        set1.setCircleSize(5f);
-        set1.setHighLightColor(Color.rgb(244, 117, 117));
-        set1.setColor(Color.rgb(104, 241, 175));
+        LineDataSet set1 = new LineDataSet(yVals, "DataSet 1");
+        // set1.setFillAlpha(110);
+        // set1.setFillColor(Color.RED);
+
+        // set the line to be drawn like this "- - - - - -"
+        set1.enableDashedLine(10f, 5f, 0f);
+        set1.setColor(Color.BLACK);
+        set1.setCircleColor(Color.BLACK);
+        set1.setLineWidth(1f);
+        set1.setCircleSize(4f);
+        set1.setFillAlpha(65);
+        set1.setFillColor(Color.BLACK);
+        // set1.setShader(new LinearGradient(0, 0, 0, mChart.getHeight(),
+        // Color.BLACK, Color.WHITE, Shader.TileMode.MIRROR));
 
         ArrayList<LineDataSet> dataSets = new ArrayList<LineDataSet>();
-        dataSets.add(set1);
+        dataSets.add(set1); // add the datasets
 
         // create a data object with the datasets
         LineData data = new LineData(xVals, dataSets);
 
+        LimitLine ll1 = new LimitLine(130f);
+        ll1.setLineWidth(4f);
+        ll1.enableDashedLine(10f, 10f, 0f);
+        ll1.setDrawValue(true);
+        ll1.setLabelPosition(LimitLabelPosition.RIGHT);
+
+        LimitLine ll2 = new LimitLine(-30f);
+        ll2.setLineWidth(4f);
+        ll2.enableDashedLine(10f, 10f, 0f);
+        ll2.setDrawValue(true);
+        ll2.setLabelPosition(LimitLabelPosition.RIGHT);
+
+        data.addLimitLine(ll1);
+        data.addLimitLine(ll2);
+
         // set data
         mChart.setData(data);
+    }
+
+    @Override
+    public void onChartLongPressed(MotionEvent me) {
+        Log.i("LongPress", "Chart longpressed.");
+    }
+
+    @Override
+    public void onChartDoubleTapped(MotionEvent me) {
+        Log.i("DoubleTap", "Chart double-tapped.");
+    }
+
+    @Override
+    public void onChartSingleTapped(MotionEvent me) {
+        Log.i("SingleTap", "Chart single-tapped.");
+    }
+
+    @Override
+    public void onChartFling(MotionEvent me1, MotionEvent me2, float velocityX, float velocityY) {
+        Log.i("Fling", "Chart flinged. VeloX: " + velocityX + ", VeloY: " + velocityY);
+    }
+
+    @Override
+    public void onValueSelected(Entry e, int dataSetIndex) {
+        Log.i("Entry selected", e.toString());
+    }
+
+    @Override
+    public void onNothingSelected() {
+        Log.i("Nothing selected", "Nothing selected.");
     }
 }

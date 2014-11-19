@@ -92,7 +92,15 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
     protected void calcMinMax(boolean fixedValues) {
         super.calcMinMax(fixedValues);
 
+        // additional handling for space (default 15% space)
+        // float space = Math.abs(mDeltaY / 100f * 15f);
+
+        if (mYChartMax <= 0)
+            mYChartMax = 1f;
+
         mYChartMin = 0;
+
+        mDeltaY = Math.abs(mYChartMax - mYChartMin);
     }
 
     @Override
@@ -102,7 +110,6 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
         prepareYLabels();
         prepareXLabels();
     }
-
 
     @Override
     protected void onDraw(Canvas canvas) {
@@ -157,7 +164,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
         mWebPaint.setColor(mWebColor);
         mWebPaint.setAlpha(mWebAlpha);
 
-        for (int i = 0; i < mCurrentData.getXValCount(); i++) {
+        for (int i = 0; i < mData.getXValCount(); i++) {
 
             PointF p = getPosition(c, mYChartMax * factor, sliceangle * i + mRotationAngle);
 
@@ -173,7 +180,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
         for (int j = 0; j < labelCount; j++) {
 
-            for (int i = 0; i < mCurrentData.getXValCount(); i++) {
+            for (int i = 0; i < mData.getXValCount(); i++) {
 
                 float r = ((mYChartMax / labelCount) * (j + 1)) * factor;
 
@@ -188,7 +195,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
     @Override
     protected void drawData() {
 
-        ArrayList<RadarDataSet> dataSets = mCurrentData.getDataSets();
+        ArrayList<RadarDataSet> dataSets = mData.getDataSets();
 
         float sliceangle = getSliceAngle();
 
@@ -198,7 +205,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
         PointF c = getCenterOffsets();
 
-        for (int i = 0; i < mCurrentData.getDataSetCount(); i++) {
+        for (int i = 0; i < mData.getDataSetCount(); i++) {
 
             RadarDataSet dataSet = dataSets.get(i);
             ArrayList<Entry> entries = dataSet.getYVals();
@@ -243,7 +250,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
      */
     private void drawLimitLines() {
 
-        ArrayList<LimitLine> limitLines = mOriginalData.getLimitLines();
+        ArrayList<LimitLine> limitLines = mData.getLimitLines();
 
         if (limitLines == null)
             return;
@@ -268,7 +275,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
             Path limitPath = new Path();
 
-            for (int j = 0; j < mCurrentData.getXValCount(); j++) {
+            for (int j = 0; j < mData.getXValCount(); j++) {
 
                 PointF p = getPosition(c, r, sliceangle * j + mRotationAngle);
 
@@ -291,7 +298,9 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
     private void prepareYLabels() {
 
         int labelCount = mYLabels.getLabelCount();
-        double range = mCurrentData.getYMax() - mYChartMin;
+
+        double max = mData.getYMax() > 0 ? mData.getYMax() : 1.0;
+        double range = max - mYChartMin;
 
         double rawInterval = range / labelCount;
         double interval = Utils.roundToNextSignificant(rawInterval);
@@ -304,7 +313,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
         }
 
         double first = Math.ceil(mYChartMin / interval) * interval;
-        double last = Utils.nextUp(Math.floor(mCurrentData.getYMax() / interval) * interval);
+        double last = Utils.nextUp(Math.floor(max / interval) * interval);
 
         double f;
         int n = 0;
@@ -366,7 +375,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
         StringBuffer a = new StringBuffer();
 
-        int max = (int) Math.round(mCurrentData.getXValAverageLength());
+        int max = (int) Math.round(mData.getXValAverageLength());
 
         for (int i = 0; i < max; i++) {
             a.append("h");
@@ -396,9 +405,9 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
         PointF c = getCenterOffsets();
 
-        for (int i = 0; i < mCurrentData.getXValCount(); i++) {
+        for (int i = 0; i < mData.getXValCount(); i++) {
 
-            String text = mCurrentData.getXVals().get(i);
+            String text = mData.getXVals().get(i);
 
             float angle = (sliceangle * i + mRotationAngle) % 360f;
 
@@ -424,9 +433,9 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
             float yoffset = Utils.convertDpToPixel(5f);
 
-            for (int i = 0; i < mCurrentData.getDataSetCount(); i++) {
+            for (int i = 0; i < mData.getDataSetCount(); i++) {
 
-                RadarDataSet dataSet = mCurrentData.getDataSetByIndex(i);
+                RadarDataSet dataSet = mData.getDataSetByIndex(i);
                 ArrayList<Entry> entries = dataSet.getYVals();
 
                 for (int j = 0; j < entries.size(); j++) {
@@ -459,7 +468,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
             for (int i = 0; i < mIndicesToHightlight.length; i++) {
 
-                RadarDataSet set = mCurrentData
+                RadarDataSet set = mData
                         .getDataSetByIndex(mIndicesToHightlight[i]
                                 .getDataSetIndex());
 
@@ -502,7 +511,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
      * @return
      */
     public float getSliceAngle() {
-        return 360f / (float) mCurrentData.getXValCount();
+        return 360f / (float) mData.getXValCount();
     }
 
     @Override
@@ -513,7 +522,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
         float sliceangle = getSliceAngle();
 
-        for (int i = 0; i < mCurrentData.getXValCount(); i++) {
+        for (int i = 0; i < mData.getXValCount(); i++) {
             if (sliceangle * (i + 1) - sliceangle / 2f > a)
                 return i;
         }
@@ -640,7 +649,7 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
     protected float getRequiredBottomOffset() {
         return mLegendLabelPaint.getTextSize() * 6.5f;
     }
-    
+
     @Override
     protected float getRequiredBaseOffset() {
         return mXLabels.mLabelWidth;
